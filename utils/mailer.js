@@ -8,52 +8,52 @@ let _transporter = null;
 const buildTransporter = () => {
   if (_transporter) return _transporter;
 
-  const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT) || 465;
+  const host = process.env.SMTP_HOST || 'smtp.gmail.com';
+  const port = Number(process.env.SMTP_PORT) || 587; // ✅ use 587
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
 
   if (!host || !user || !pass) {
     console.warn(
       '[MAIL] ⚠ SMTP not configured. ' +
-      'Set SMTP_HOST, SMTP_USER, and SMTP_PASS in your .env file.'
+      'Set SMTP_HOST, SMTP_USER, and SMTP_PASS in your environment variables.'
     );
     return null;
   }
 
-  const secure = port === 465;
-
-  const opts = {
+  // ✅ Stable config for Render + Gmail
+  const transporterOptions = {
     host,
     port,
-    secure,
-    auth: { user, pass },
-    tls: { rejectUnauthorized: process.env.NODE_ENV === 'production' },
+    secure: false, // ❗ IMPORTANT: must be false for port 587
+    auth: {
+      user,
+      pass,
+    },
   };
 
-  if (!secure) opts.requireTLS = true;
+  _transporter = nodemailer.createTransport(transporterOptions);
 
-  _transporter = nodemailer.createTransport(opts);
   return _transporter;
 };
 
 // ─── Verify Connection ────────────────────────────────────────────────────────
 const verifyConnection = async () => {
-  const t = buildTransporter();
-  if (!t) return;
+  const transporter = buildTransporter();
+  if (!transporter) return;
 
   try {
-    await t.verify();
+    await transporter.verify();
     console.log(
-      `[MAIL] ✅ SMTP OK — ${process.env.SMTP_HOST}:${process.env.SMTP_PORT}` +
-      ` as <${process.env.SMTP_USER}>`
+      `[MAIL] ✅ SMTP Connected — ${process.env.SMTP_HOST}:${process.env.SMTP_PORT} as ${process.env.SMTP_USER}`
     );
   } catch (err) {
     console.error(
-      `[MAIL] ❌ SMTP FAILED — host=${process.env.SMTP_HOST}` +
-      ` port=${process.env.SMTP_PORT}\n` +
-      `       → ${err.message}\n` +
-      `       Tip: Use App Password + Port 465 (SSL)`
+      `[MAIL] ❌ SMTP Connection Failed\n` +
+      `Host: ${process.env.SMTP_HOST}\n` +
+      `Port: ${process.env.SMTP_PORT}\n` +
+      `Error: ${err.message}\n` +
+      `👉 Fix: Use Gmail App Password + Port 587`
     );
   }
 };
@@ -63,10 +63,8 @@ const sendMail = async ({ to, subject, html, text }) => {
   const transporter = buildTransporter();
 
   if (!transporter) {
-    const msg =
-      'Email service is not configured. ' +
-      'Set SMTP_HOST, SMTP_USER, and SMTP_PASS in your .env file.';
-    console.error(`[MAIL] ❌ Cannot send to ${to}: ${msg}`);
+    const msg = 'Email service not configured properly.';
+    console.error(`[MAIL] ❌ Cannot send email → ${msg}`);
     throw new Error(msg);
   }
 
@@ -83,17 +81,21 @@ const sendMail = async ({ to, subject, html, text }) => {
     });
 
     console.log(
-      `[MAIL] ✅ Sent → ${to} | "${subject}" | id=${info.messageId}`
+      `[MAIL] ✅ Email Sent → ${to} | Subject: "${subject}" | ID: ${info.messageId}`
     );
 
     return info;
   } catch (err) {
     console.error(
-      `[MAIL] ❌ Failed → ${to} | "${subject}"\n` +
-      `       Error: ${err.message}`
+      `[MAIL] ❌ Email Failed → ${to}\n` +
+      `Subject: ${subject}\n` +
+      `Error: ${err.message}`
     );
     throw err;
   }
 };
 
-module.exports = { sendMail, verifyConnection };
+module.exports = {
+  sendMail,
+  verifyConnection,
+};
