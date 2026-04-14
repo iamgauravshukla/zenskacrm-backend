@@ -12,6 +12,7 @@ const { verifyConnection } = require('./utils/mailer');
 connectDB();
 verifyConnection();
 
+
 const app = express();
 
 // ─── CORS FIX (IMPORTANT) ─────────────────────────────────────────────────────
