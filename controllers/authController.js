@@ -15,6 +15,18 @@ const generateToken = (id) =>
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   });
 
+const localOriginPattern = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i;
+
+const resolveClientUrl = (req) => {
+  const requestOrigin = req.get('origin');
+
+  if (requestOrigin && localOriginPattern.test(requestOrigin)) {
+    return requestOrigin;
+  }
+
+  return process.env.CLIENT_URL || 'http://localhost:3000';
+};
+
 // ─── Signup ───────────────────────────────────────────────────────────────────
 exports.signup = async (req, res) => {
   try {
@@ -179,11 +191,16 @@ exports.forgotPassword = async (req, res) => {
     if (!email)
       return res.status(400).json({ message: 'Email is required' });
 
+    const isDevelopment = process.env.NODE_ENV !== 'production';
+
     const user = await User.findOne({ email: email.toLowerCase().trim() });
 
     // Always respond 200 — prevents email enumeration
-    const okResponse = () =>
-      res.json({ message: 'If that email is registered, you will receive reset instructions.' });
+    const okResponse = (extra = {}) =>
+      res.json({
+        message: 'If that email is registered, you will receive reset instructions.',
+        ...extra,
+      });
 
     if (!user) return okResponse();
 
@@ -195,7 +212,7 @@ exports.forgotPassword = async (req, res) => {
     user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
     await user.save({ validateModifiedOnly: true });
 
-    const clientUrl  = process.env.CLIENT_URL || 'http://localhost:3000';
+    const clientUrl  = resolveClientUrl(req);
     const resetUrl   = `${clientUrl}/reset-password?token=${plainToken}`;
 
     console.log(`[forgotPassword] Reset token generated for ${user.email}`);
@@ -208,11 +225,24 @@ exports.forgotPassword = async (req, res) => {
       });
     } catch (mailErr) {
       console.error('[forgotPassword] ❌ Email delivery failed:', mailErr.message);
+      if (isDevelopment) {
+        console.log(`[forgotPassword] Dev reset URL fallback for ${user.email}: ${resetUrl}`);
+        return okResponse({
+          devResetUrl: resetUrl,
+          devMailError: mailErr.message,
+        });
+      }
+
       // Do NOT return the reset URL in the response — that bypasses email verification.
       // The user must contact their admin or retry.
       return res.status(503).json({
         message: 'We could not send the reset email right now. Please try again in a few minutes or contact your administrator.',
       });
+    }
+
+    if (isDevelopment) {
+      console.log(`[forgotPassword] Dev reset URL for ${user.email}: ${resetUrl}`);
+      return okResponse({ devResetUrl: resetUrl });
     }
 
     return okResponse();

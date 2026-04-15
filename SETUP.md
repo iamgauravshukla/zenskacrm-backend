@@ -10,66 +10,57 @@ Copy `.env.example` to `.env` in the backend folder:
 cp .env.example .env
 ```
 
-Then fill in your real values — especially the SMTP block.
+Then fill in your real values, especially the Resend block.
 
 ---
 
-## SMTP Configuration (Hostinger)
+## Resend Configuration
 
-### Finding your credentials
-
-1. Log in to **hPanel** (Hostinger control panel)
-2. Go to **Emails → Email Accounts**
-3. Find or create the mailbox you want to send from (e.g. `admin@zenska.ph`)
-4. Note the **mailbox password** you set — this is your `SMTP_PASS`
-
-### Recommended settings (port 465 — SSL)
+### Required variables
 
 ```env
-SMTP_HOST=smtp.hostinger.com
-SMTP_PORT=465
-SMTP_USER=admin@zenska.ph
-SMTP_PASS=your_mailbox_password_here
-SMTP_FROM_NAME=Zenska CRM
-SMTP_FROM_EMAIL=admin@zenska.ph
+RESEND_API_KEY=re_replace_with_your_real_api_key
+RESEND_FROM=Zenska CRM <no-reply@yourdomain.com>
 ```
 
-> **⚠ Common mistake:** `SMTP_PASS` must be your **mailbox** password — the one
-> you set in hPanel for that email account. It is NOT your Hostinger login password.
+### Important: test mode restriction
 
-### Alternative — port 587 (STARTTLS)
+If your Resend account is still using the default `resend.dev` sender or an unverified domain, Resend only delivers to your own account email.
 
-If port 465 doesn't work, try:
+That is why forgot-password works for `gaurav.lohchab@lukasz.in` but not for other recipients.
 
-```env
-SMTP_HOST=smtp.hostinger.com
-SMTP_PORT=587
-```
+### To send email to any user
 
-Everything else stays the same.
+1. Open Resend and verify your domain.
+2. Add the DNS records Resend gives you.
+3. Wait until the domain status becomes verified.
+4. Set `RESEND_FROM` to an address on that domain, for example `Zenska CRM <no-reply@lukasztrade.com>`.
+5. Restart the backend.
 
 ---
 
 ## Verifying it works
 
-When the backend starts you will see one of these in the terminal:
+When the backend starts you should see:
 
 ```
-[MAIL] ✅ SMTP OK — smtp.hostinger.com:465 as <admin@zenska.ph>
+[MAIL] ✅ Resend ready (from: Zenska CRM <no-reply@yourdomain.com>)
 ```
-→ Email is fully working. No further action needed.
+
+When a forgot-password email is accepted by Resend you will see:
 
 ```
-[MAIL] ❌ SMTP FAILED — host=smtp.hostinger.com port=465
-         → Invalid login: 535 Incorrect authentication data
-         Tip: 465 = SSL/TLS | 587 = STARTTLS. Verify mailbox password is correct.
+[MAIL] ✅ Email Sent → user@example.com (id: ...)
 ```
-→ Wrong password. Double-check `SMTP_PASS` in `.env`.
+
+If Resend is still in test mode, you may see:
 
 ```
-[MAIL] ⚠  SMTP not configured. Set SMTP_HOST, SMTP_USER, and SMTP_PASS in your .env file.
+[MAIL] ❌ Email Failed → user@example.com
+Error: You can only send testing emails to your own email address (...)
 ```
-→ You haven't filled in the `.env` file yet.
+
+That means the app is working, but your sender domain is not verified yet.
 
 ---
 
