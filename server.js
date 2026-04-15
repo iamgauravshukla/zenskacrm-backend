@@ -17,13 +17,13 @@ const app = express();
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
 const ALLOWED_ORIGINS = [
-  process.env.CLIENT_URL,               // set this in Railway dashboard to your frontend URL
+  process.env.CLIENT_URL?.replace(/\/$/, ''), // strip trailing slash from Railway env var
   'http://localhost:3000',
   'http://localhost:3001',
   'http://127.0.0.1:3000',
   'http://127.0.0.1:3001',
   'https://crm-three-red.vercel.app',
-  'https://crm.lukasztrade.com',
+  'https://crm.zenska.ph',
 ].filter(Boolean);
 
 const corsOptions = {
