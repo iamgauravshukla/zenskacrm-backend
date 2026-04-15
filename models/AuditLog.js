@@ -7,7 +7,7 @@ const auditLogSchema = new mongoose.Schema({
   oldValue: { type: mongoose.Schema.Types.Mixed },
   newValue: { type: mongoose.Schema.Types.Mixed },
   changedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-  changedAt: { type: Date, default: Date.now, index: true },
+  changedAt: { type: Date, default: Date.now },
 });
 
 // Auto-expire audit logs after 90 days to prevent unbounded growth

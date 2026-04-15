@@ -672,7 +672,7 @@ exports.importCSV = async (req, res) => {
     importJob.successCount = successCount;
     importJob.skippedCount = skippedCount;
     importJob.errorCount = errors.length;
-    importJob.errors = errors;
+    importJob.importErrors = errors;
     await importJob.save();
 
     try { fs.unlinkSync(req.file.path); } catch (_) {}

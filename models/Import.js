@@ -9,7 +9,7 @@ const importSchema = new mongoose.Schema({
   successCount: { type: Number, default: 0 },
   skippedCount: { type: Number, default: 0 },
   errorCount: { type: Number, default: 0 },
-  errors: [{ row: Number, message: String }],
+  importErrors: [{ row: Number, message: String }],
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
 }, { timestamps: true });
 
