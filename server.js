@@ -15,40 +15,35 @@ verifyConnection();
 
 const app = express();
 
-// ─── CORS FIX (IMPORTANT) ─────────────────────────────────────────────────────
+// ─── CORS ─────────────────────────────────────────────────────────────────────
 const ALLOWED_ORIGINS = [
-  process.env.CLIENT_URL,
+  process.env.CLIENT_URL,               // set this in Railway dashboard to your frontend URL
   'http://localhost:3000',
   'http://localhost:3001',
   'http://127.0.0.1:3000',
   'http://127.0.0.1:3001',
-  'https://crm-three-red.vercel.app', // ✅ your frontend
+  'https://crm-three-red.vercel.app',
+  'https://crm.lukasztrade.com',
 ].filter(Boolean);
 
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      // ✅ allow requests without origin (Postman, mobile apps, etc.)
-      if (!origin) return callback(null, true);
+const corsOptions = {
+  origin: (origin, callback) => {
+    // allow requests without origin (Postman, server-to-server, etc.)
+    if (!origin) return callback(null, true);
+    if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    callback(new Error(`CORS: origin '${origin}' not allowed`));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
 
-      // ✅ allow known origins
-      if (ALLOWED_ORIGINS.includes(origin)) {
-        return callback(null, true);
-      }
-
-      // ✅ TEMP: allow all (prevents CORS crash)
-      return callback(null, true);
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  })
-);
-
-// ✅ VERY IMPORTANT → handles preflight requests
-app.options('*', cors());
+// preflight must come before helmet
+app.options('*', cors(corsOptions));
+app.use(cors(corsOptions));
 
 // ─── Security & parsing ───────────────────────────────────────────────────────
-app.use(helmet());
+app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(compression());
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
