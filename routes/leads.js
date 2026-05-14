@@ -20,6 +20,7 @@ router.use(requireWorkspace);
 router.get('/', ctrl.getLeads);
 router.get('/custom-fields', ctrl.getCustomFields);
 router.get('/stage-counts', ctrl.getStageCounts);
+router.get('/export/csv', ctrl.exportLeads);
 router.delete('/all', adminOnly, ctrl.deleteAllLeads);
 router.post('/', ctrl.createLead);
 router.get('/:id', ctrl.getLead);

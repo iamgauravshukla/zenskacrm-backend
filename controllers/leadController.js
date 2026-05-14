@@ -137,7 +137,7 @@ const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 exports.getLeads = async (req, res) => {
   try {
-    const { stage, brand, assignedTo, search, startDate, endDate, tagColor, source,
+    const { stage, brand, assignedTo, search, startDate, endDate, tagColor, source, authorizedBrand,
             page = 1, limit = 50, withOnboarding } = req.query;
 
     const query = { workspaceId: req.user.workspaceId, isDeleted: false };
@@ -146,6 +146,14 @@ exports.getLeads = async (req, res) => {
     if (assignedTo) query.assignedTo = assignedTo;
     if (tagColor)   query.tagColor   = tagColor;
     if (source)     query.source     = source;
+    if (authorizedBrand === 'true') {
+      const NEGATIVE = /^\s*(no|nope|not\s+yet|none|n\/a|na|nah)\s*[.!]*\s*$/i;
+      if (!query.$and) query.$and = [];
+      query.$and.push(
+        { authorizedBrand: { $exists: true, $ne: '' } },
+        { authorizedBrand: { $not: NEGATIVE } }
+      );
+    }
     if (startDate || endDate) {
       query.createdAt = {};
       if (startDate) query.createdAt.$gte = new Date(startDate);
@@ -342,6 +350,81 @@ exports.assignLead = async (req, res) => {
 
     await lead.populate('assignedTo', 'name email');
     res.json(lead);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ─── CSV Export ───────────────────────────────────────────────────────────────
+
+exports.exportLeads = async (req, res) => {
+  try {
+    const { stage, assignedTo, source, authorizedBrand, search, startDate, endDate } = req.query;
+
+    const query = { workspaceId: req.user.workspaceId, isDeleted: false };
+    if (stage)      query.stage      = { $in: stage.split(',') };
+    if (assignedTo) query.assignedTo = assignedTo;
+    if (source)     query.source     = source;
+    if (authorizedBrand === 'true') {
+      const NEGATIVE = /^\s*(no|nope|not\s+yet|none|n\/a|na|nah)\s*[.!]*\s*$/i;
+      if (!query.$and) query.$and = [];
+      query.$and.push(
+        { authorizedBrand: { $exists: true, $ne: '' } },
+        { authorizedBrand: { $not: NEGATIVE } }
+      );
+    }
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) query.createdAt.$gte = new Date(startDate);
+      if (endDate) { const e = new Date(endDate); e.setHours(23,59,59,999); query.createdAt.$lte = e; }
+    }
+    if (search) {
+      const safe = escapeRegex(search.slice(0, 100));
+      query.$or = [
+        { name:  { $regex: safe, $options: 'i' } },
+        { phone: { $regex: safe, $options: 'i' } },
+        { email: { $regex: safe, $options: 'i' } },
+        { brand: { $regex: safe, $options: 'i' } },
+      ];
+    }
+
+    const leads = await Lead.find(query)
+      .populate('assignedTo', 'name')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Collect all custom field keys across result set
+    const cfKeys = new Set();
+    leads.forEach(l => { if (l.customFields) Object.keys(l.customFields).forEach(k => cfKeys.add(k)); });
+
+    const escape = (v) => {
+      const s = v == null ? '' : String(v);
+      if (s.includes(',') || s.includes('"') || s.includes('\n')) return `"${s.replace(/"/g, '""')}"`;
+      return s;
+    };
+
+    const COLS = ['Date Added','Name','Phone','Email','Brand','Stage','Source',
+                  'Authorized Brand','Sells on Other Platform','Assigned To', ...cfKeys];
+
+    const rows = [COLS.join(',')];
+    for (const l of leads) {
+      const cf = l.customFields || {};
+      const row = [
+        new Date(l.createdAt).toLocaleDateString('en-IN'),
+        l.name, l.phone, l.email || '', l.brand || '',
+        l.stage, l.source || '',
+        l.authorizedBrand || '',
+        l.sellsOnOtherPlatform || '',
+        l.assignedTo?.name || '',
+        ...[...cfKeys].map(k => cf[k] || ''),
+      ].map(escape);
+      rows.push(row.join(','));
+    }
+
+    const filename = `leads-export-${new Date().toISOString().slice(0,10)}.csv`;
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(rows.join('\r\n'));
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const STAGES = [
   'New Lead','In Process','Meeting Scheduled','Meeting Completed',
-  'Onboarding Started','Onboarding Completed','Offer Sent / Closed',
+  'Potential OB Later','Onboarding Started','Onboarding Completed','Offer Sent / Closed',
 ];
 
 const stageHistorySchema = new mongoose.Schema({
