@@ -42,7 +42,6 @@ exports.getSummary = async (req, res) => {
       .select('name brand stage assignedTo tagColor createdAt');
 
     // Extend to 30 days so newly scheduled meetings always appear
-    const now = new Date();
     const future = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
     const upcomingMeetings = await Meeting.find({
       workspaceId: wid,
